@@ -256,9 +256,9 @@ function draw() {
 
   // башни
   for (const t of state.towers) {
-    ctx.fillStyle = "#0b1f12";
+    ctx.fillStyle = "rgba(46,160,67,0.07)";
     ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = "#1f6f43"; ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = "rgba(31,111,67,0.45)"; ctx.lineWidth = 1; ctx.stroke();
 
     ctx.fillStyle = "#2ea043";
     ctx.beginPath(); ctx.arc(t.x, t.y, 15, 0, Math.PI * 2); ctx.fill();
