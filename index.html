@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Кошки · TD-прототип</title>
+<style>
+  html,body{margin:0;height:100%;background:#0d1117;color:#c9d1d9;
+    font-family:-apple-system,Segoe UI,Roboto,sans-serif;display:flex;
+    align-items:center;justify-content:center;}
+  #wrap{position:relative;padding-bottom:34px}
+  canvas{display:block;border-radius:10px;background:#161b22;box-shadow:0 0 0 1px #30363d}
+  #hud{position:absolute;top:10px;left:14px;right:14px;display:flex;gap:22px;
+    font-size:14px;letter-spacing:.4px;pointer-events:none;text-shadow:0 1px 2px #000}
+  #hud b{color:#f0f6fc}
+  #hud .gold{color:#e3b341}#hud .life{color:#f85149}#hud .wave{color:#58a6ff}
+  #panel{position:absolute;left:0;right:0;bottom:-30px;font-size:12px;color:#6e7681;
+    text-align:center;pointer-events:none;letter-spacing:.3px}
+  #center{position:absolute;inset:0;display:flex;flex-direction:column;gap:14px;
+    align-items:center;justify-content:center;background:rgba(13,17,23,.86);
+    border-radius:10px;text-align:center}
+  #center.hidden{display:none}
+  #center h1{margin:0;font-size:26px;font-weight:600;color:#f0f6fc}
+  #center p{margin:0;max-width:420px;font-size:13px;color:#8b949e;line-height:1.5}
+  button{background:#238636;border:0;color:#fff;padding:11px 26px;border-radius:8px;
+    font-size:15px;cursor:pointer;font-weight:600}
+  button:hover{background:#2ea043}
+  button.ghost{background:#21262d;box-shadow:inset 0 0 0 1px #30363d}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c" width="900" height="500"></canvas>
+  <div id="hud">
+    <span class="gold">💰 <b id="gold">0</b></span>
+    <span class="life">❤ <b id="lives">20</b></span>
+    <span class="wave">🌊 <b id="wave">0</b>/5</span>
+  </div>
+  <div id="panel">Клик по площадке — построить (50). Клик по башне — апгрейд (70). Пробел — волна.</div>
+  <div id="center">
+    <h1>Полигон</h1>
+    <p>Один лейн. Одна башня. Пять волн. Проверяем только цикл: волна → выстрел → смерть → деньги → апгрейд.</p>
+    <button id="play">Начать</button>
+  </div>
+</div>
+<script>
+"use strict";
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+const W = cv.width, H = cv.height;
+
+// --- путь ---
+const PATH = [
+  {x:-40, y:250}, {x:210, y:250}, {x:210, y:120},
+  {x:520, y:120}, {x:520, y:380}, {x:900, y:380}
+];
+const SEG = [];
+let TOTAL = 0;
+for (let i = 0; i < PATH.length - 1; i++) {
+  const a = PATH[i], b = PATH[i+1];
+  const len = Math.hypot(b.x-a.x, b.y-a.y);
+  SEG.push({a, b, len, start: TOTAL});
+  TOTAL += len;
+}
+function posAt(d) {
+  d = Math.max(0, Math.min(d, TOTAL));
+  for (const s of SEG) {
+    if (d <= s.start + s.len) {
+      const t = s.len ? (d - s.start) / s.len : 0;
+      return {x: s.a.x + (s.b.x - s.a.x) * t, y: s.a.y + (s.b.y - s.a.y) * t};
+    }
+  }
+  return {x: PATH[PATH.length-1].x, y: PATH[PATH.length-1].y};
+}
+
+// --- состояние ---
+const SLOTS = [
+  {x:110, y:175}, {x:150, y:322}, {x:288, y:192}, {x:390, y:45},
+  {x:600, y:308}, {x:700, y:452}
+];
+const state = {
+  running: false, over: false, won: false,
+  gold: 150, lives: 20, wave: 0, waveActive: false,
+  enemies: [], towers: [], beams: [],
+  spawnQueue: [], spawnTimer: 0, betweenTimer: 0,
+  time: 0
+};
+const TOWER_COST = 50, UPGRADE_COST = 70;
+const WAVES = [
+  {count: 6,  hp: 40,  speed: 40, reward: 55},
+  {count: 8,  hp: 70,  speed: 44, reward: 65},
+  {count: 10, hp: 110, speed: 48, reward: 75},
+  {count: 12, hp: 160, speed: 52, reward: 90},
+  {count: 14, hp: 230, speed: 56, reward: 110}
+];
+
+// --- спавн ---
+function startWave() {
+  if (state.waveActive || state.over || state.wave >= WAVES.length) return;
+  const w = WAVES[state.wave];
+  state.wave++;
+  state.waveActive = true;
+  state.spawnQueue = [];
+  for (let i = 0; i < w.count; i++) state.spawnQueue.push({ ...w, delay: i * 0.65 });
+  state.spawnTimer = 0;
+}
+
+function spawnEnemy(cfg) {
+  state.enemies.push({
+    d: 0, hp: cfg.hp, maxHp: cfg.hp,
+    speed: cfg.speed * (0.9 + Math.random() * 0.2),
+    r: 10, dead: false
+  });
+}
+
+// --- башни ---
+function towerAt(x, y) {
+  let best = null, bestD = 26;
+  for (const t of state.towers) {
+    const d = Math.hypot(t.x - x, t.y - y);
+    if (d < bestD) { bestD = d; best = t; }
+  }
+  return best;
+}
+function slotAt(x, y) {
+  for (const s of SLOTS) {
+    if (Math.hypot(s.x - x, s.y - y) < 26 && !state.towers.some(t => t.sx === s.x && t.sy === s.y))
+      return s;
+  }
+  return null;
+}
+
+cv.addEventListener("click", (e) => {
+  if (!state.running || state.over) return;
+  const r = cv.getBoundingClientRect();
+  const x = (e.clientX - r.left) * (W / r.width);
+  const y = (e.clientY - r.top) * (H / r.height);
+
+  const t = towerAt(x, y);
+  if (t) {
+    if (state.gold >= UPGRADE_COST && t.level < 3) {
+      state.gold -= UPGRADE_COST;
+      t.level++;
+      t.range += 16; t.dmg += 12; t.fireRate = Math.max(0.22, t.fireRate * 0.85);
+    }
+    return;
+  }
+  const s = slotAt(x, y);
+  if (s && state.gold >= TOWER_COST) {
+    state.gold -= TOWER_COST;
+    state.towers.push({
+      sx: s.x, sy: s.y, x: s.x, y: s.y,
+      range: 118, dmg: 22, fireRate: 0.62, timer: 0, level: 1, angle: 0
+    });
+  }
+});
+
+addEventListener("keydown", (e) => {
+  if (e.code === "Space") { e.preventDefault(); startWave(); }
+});
+
+// --- обновление ---
+function update(dt) {
+  if (!state.running || state.over) return;
+  state.time += dt;
+
+  // спавн
+  if (state.waveActive && state.spawnQueue.length) {
+    state.spawnTimer += dt;
+    while (state.spawnQueue.length && state.spawnTimer >= state.spawnQueue[0].delay) {
+      spawnEnemy(state.spawnQueue.shift());
+    }
+  }
+
+  // враги
+  for (const e of state.enemies) {
+    if (e.dead) continue;
+    e.d += e.speed * dt;
+    if (e.d >= TOTAL) { e.dead = true; state.lives--; }
+  }
+
+  // башни
+  for (const t of state.towers) {
+    t.timer -= dt;
+    if (t.timer > 0) continue;
+    // цель — самый продвинутый по пути в радиусе
+    let target = null;
+    for (const e of state.enemies) {
+      if (e.dead) continue;
+      const p = posAt(e.d);
+      if (Math.hypot(p.x - t.x, p.y - t.y) > t.range) continue;
+      if (!target || e.d > target.d) target = e;
+    }
+    if (target) {
+      t.timer = t.fireRate;
+      const p = posAt(target.d);
+      t.angle = Math.atan2(p.y - t.y, p.x - t.x);
+      target.hp -= t.dmg;
+      state.beams.push({x1: t.x, y1: t.y, x2: p.x, y2: p.y, life: 0.09});
+      if (target.hp <= 0) { target.dead = true; state.gold += 8; }
+    }
+  }
+
+  // чистка
+  state.enemies = state.enemies.filter(e => !e.dead);
+  state.beams = state.beams.filter(b => (b.life -= dt) > 0);
+
+  // конец волны
+  if (state.waveActive && !state.spawnQueue.length && !state.enemies.length) {
+    state.waveActive = false;
+    const w = WAVES[state.wave - 1];
+    state.gold += w.reward;
+    if (state.wave >= WAVES.length) { state.over = true; state.won = true; }
+    else state.betweenTimer = 4;
+  }
+
+  // пауза между волнами
+  if (!state.waveActive && state.betweenTimer > 0) {
+    state.betweenTimer -= dt;
+    if (state.betweenTimer <= 0 && !state.over) startWave();
+  }
+
+  if (state.lives <= 0) { state.lives = 0; state.over = true; state.won = false; }
+}
+
+// --- отрисовка ---
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // лейн
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  ctx.strokeStyle = "#30363d"; ctx.lineWidth = 46;
+  ctx.beginPath(); ctx.moveTo(PATH[0].x, PATH[0].y);
+  for (let i = 1; i < PATH.length; i++) ctx.lineTo(PATH[i].x, PATH[i].y);
+  ctx.stroke();
+  ctx.strokeStyle = "#1f2630"; ctx.lineWidth = 38;
+  ctx.beginPath(); ctx.moveTo(PATH[0].x, PATH[0].y);
+  for (let i = 1; i < PATH.length; i++) ctx.lineTo(PATH[i].x, PATH[i].y);
+  ctx.stroke();
+
+  // выход
+  const end = PATH[PATH.length - 1];
+  ctx.fillStyle = "#f8514933";
+  ctx.fillRect(end.x - 60, end.y - 30, 60, 60);
+  ctx.strokeStyle = "#f85149"; ctx.lineWidth = 2;
+  ctx.strokeRect(end.x - 60, end.y - 30, 60, 60);
+
+  // слоты
+  for (const s of SLOTS) {
+    const occupied = state.towers.some(t => t.sx === s.x && t.sy === s.y);
+    if (occupied) continue;
+    ctx.strokeStyle = "#484f58"; ctx.setLineDash([5, 5]); ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(s.x, s.y, 20, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#30363d"; ctx.font = "12px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(TOWER_COST, s.x, s.y + 4);
+  }
+
+  // башни
+  for (const t of state.towers) {
+    ctx.fillStyle = "#0b1f12";
+    ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#1f6f43"; ctx.lineWidth = 1; ctx.stroke();
+
+    ctx.fillStyle = "#2ea043";
+    ctx.beginPath(); ctx.arc(t.x, t.y, 15, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#3fb950"; ctx.lineWidth = 2; ctx.stroke();
+
+    ctx.save();
+    ctx.translate(t.x, t.y); ctx.rotate(t.angle);
+    ctx.fillStyle = "#c9d1d9";
+    ctx.fillRect(0, -3, 20, 6);
+    ctx.restore();
+
+    ctx.fillStyle = "#f0f6fc"; ctx.font = "bold 11px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("L" + t.level, t.x, t.y + 4);
+  }
+
+  // выстрелы
+  for (const b of state.beams) {
+    ctx.strokeStyle = "rgba(227,179,65," + (b.life / 0.09) + ")";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke();
+  }
+
+  // враги
+  for (const e of state.enemies) {
+    const p = posAt(e.d);
+    const frac = Math.max(0, e.hp / e.maxHp);
+    ctx.fillStyle = "#8957e5";
+    ctx.beginPath(); ctx.arc(p.x, p.y, e.r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#a371f7"; ctx.lineWidth = 2; ctx.stroke();
+
+    ctx.fillStyle = "#161b22";
+    ctx.fillRect(p.x - 12, p.y - 18, 24, 4);
+    ctx.fillStyle = frac > 0.5 ? "#3fb950" : frac > 0.25 ? "#e3b341" : "#f85149";
+    ctx.fillRect(p.x - 12, p.y - 18, 24 * frac, 4);
+  }
+
+  // оверлей
+  if (state.over) {
+    ctx.fillStyle = "rgba(13,17,23,.82)"; ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = "center";
+    ctx.fillStyle = state.won ? "#3fb950" : "#f85149";
+    ctx.font = "bold 34px sans-serif";
+    ctx.fillText(state.won ? "Полигон пройден" : "Прорыв", W / 2, H / 2 - 8);
+    ctx.fillStyle = "#8b949e"; ctx.font = "14px sans-serif";
+    ctx.fillText("Волн: " + state.wave + " · Жизней: " + state.lives, W / 2, H / 2 + 24);
+  }
+}
+
+function syncHud() {
+  document.getElementById("gold").textContent = state.gold;
+  document.getElementById("lives").textContent = state.lives;
+  document.getElementById("wave").textContent = state.wave;
+}
+
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min((now - last) / 1000, 0.05);
+  last = now;
+  update(dt); draw(); syncHud();
+  requestAnimationFrame(loop);
+}
+
+document.getElementById("play").addEventListener("click", () => {
+  document.getElementById("center").classList.add("hidden");
+  state.running = true;
+  startWave();
+});
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
