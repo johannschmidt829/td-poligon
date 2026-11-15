@@ -17,7 +17,7 @@ button:hover{background:#2ea043}
 <div id="wrap"><canvas id="c" width="900" height="500"></canvas>
 <div id="hud"><span class="gold">💰 <b id="gold">0</b></span><span class="life">❤ <b id="lives">20</b></span><span class="wave">🌊 <b id="wave">0</b>/5</span><span class="poly">📍 <b id="poly">—</b></span></div>
 <div id="shop"><div></div><div></div><div></div><div></div><div></div></div>
-<div id="bar"><span>1–5 выбор башни · клик по площадке — построить · клик по башне — апгрейд (до L4) · пробел — волна</span><button id="playmenu">Играть</button><button id="nextwave">Волна</button></div>
+<div id="bar"><span>1–5 выбор башни · клик по площадке — построить · клик по башне — апгрейд (до L4) · пробел — волна · ремонт +1 ❤ за 400</span><button id="playmenu">Играть</button><button id="nextwave">Волна</button><button id="repair">Ремонт 400</button></div>
 </div><script>
 
 "use strict";
@@ -25,13 +25,13 @@ button:hover{background:#2ea043}
 const POLYGONS=[
  {id:"trava",   name:"Трава",   hpk:1.00, spdk:1.00, gold:320, path:[[-40,250],[210,250],[210,120],[520,120],[520,380],[940,380]],
   slots:[[110,175],[150,322],[288,192],[390,45],[600,308],[700,452]]},
- {id:"les",     name:"Лес",     hpk:1.30, spdk:1.05, gold:320, path:[[-40,120],[300,120],[300,380],[620,380],[620,140],[940,140]],
+ {id:"les",     name:"Лес",     hpk:1.30, spdk:1.12, gold:320, path:[[-40,120],[300,120],[300,380],[620,380],[620,140],[940,140]],
   slots:[[120,200],[220,300],[380,200],[470,440],[700,220],[800,420]]},
- {id:"pustynya",name:"Пустыня", hpk:1.70, spdk:1.10, gold:340, path:[[-40,380],[250,380],[250,100],[560,100],[560,300],[940,300]],
+ {id:"pustynya",name:"Пустыня", hpk:1.70, spdk:1.14, gold:340, path:[[-40,380],[250,380],[250,100],[560,100],[560,300],[940,300]],
   slots:[[120,300],[330,200],[340,440],[640,180],[640,380],[780,200]]},
- {id:"ostrova", name:"Острова", hpk:2.15, spdk:1.15, gold:360, path:[[-40,200],[200,200],[200,400],[480,400],[480,150],[940,150]],
+ {id:"ostrova", name:"Острова", hpk:2.15, spdk:1.18, gold:360, path:[[-40,200],[200,200],[200,400],[480,400],[480,150],[940,150]],
   slots:[[110,120],[280,280],[280,460],[560,320],[560,60],[760,230]]},
- {id:"vulkany", name:"Вулканы", hpk:2.70, spdk:1.20, gold:380, path:[[-40,320],[180,320],[180,120],[440,120],[440,400],[940,400]],
+ {id:"vulkany", name:"Вулканы", hpk:2.70, spdk:1.22, gold:380, path:[[-40,320],[180,320],[180,120],[440,120],[440,400],[940,400]],
   slots:[[100,230],[260,200],[260,440],[520,200],[620,320],[780,320]]},
 ];
 const TOWERS=[
@@ -43,6 +43,9 @@ const TOWERS=[
 ];
 const WAVE_DEF=[{n:8,hp:1.00,spd:1.00},{n:10,hp:1.55,spd:1.05},{n:12,hp:2.25,spd:1.10},{n:14,hp:3.15,spd:1.15},{n:16,hp:4.40,spd:1.20}];
 const BASE_HP=44, BASE_SPD=36, RANGE=240, LIVES0=20;
+// Правка баланса 15.11.2026 (запрос @Dr_Chernikov): доход растёт как sqrt(hpk), а не линейно;
+// скорость врагов компенсирует длину пути, чтобы время под обстрелом падало монотонно.
+const TUNE={incExp:0.50, waveBase:400, waveK:0.45, repairCost:400};
 const UNITS=["pawn","arch","warr","lanc","pawn"];
 
 // ============ canvas ============
@@ -208,7 +211,7 @@ function update(dt){
     if(en.burnT>0){en.burnT-=dt;en.hp-=en.burnDps*dt;}
     en.d+=en.spd*dt;en.anim+=dt;
     if(en.hp<=0){en.dead=true;
-      let rw=Math.round(en.maxHp*0.10);if(en.boss>0)rw=Math.round(rw*1.8);S.gold+=rw;
+      let rw=Math.round(en.maxHp*0.10*Math.pow(POLYGONS[S.pi].hpk,-TUNE.incExp));if(en.boss>0)rw=Math.round(rw*1.8);S.gold+=rw;
       for(let i=0;i<(en.boss?14:5);i++)S.parts.push({x:posAt(en.d).x,y:posAt(en.d).y,vx:(Math.random()-0.5)*90,vy:-40-Math.random()*60,life:0.5});
       continue;}
     if(en.d>=TOTAL){en.dead=true;S.lives--;}
@@ -238,7 +241,7 @@ function update(dt){
   if(S.waveActive&&!S.spawnQueue.length&&!S.enemies.length){
     S.waveActive=false;
     const P=POLYGONS[S.pi];
-    S.gold+=Math.round(350*(1+P.hpk*0.6));
+    S.gold+=Math.round(TUNE.waveBase*(1+Math.pow(P.hpk,0.5)*TUNE.waveK));
     if(S.wave>=5){S.finished[P.id]=true;const all=POLYGONS.every(q=>S.finished[q.id]);
       S.screen=all?"win":"menu";S.msg=all?"Все 5 полигонов пройдены":"Полигон пройден";}
     else S.betweenTimer=3;
@@ -337,6 +340,9 @@ function syncHud(){
       el.innerHTML="<b>"+d.name+"</b><span>"+d.cost+" · "+d.desc+"</span>";
     });
   }else shop.style.display="none";
+  const rb=document.getElementById("repair");
+  if(rb){const can=S.screen==="game"&&S.lives<LIVES0&&S.gold>=TUNE.repairCost;
+    rb.style.opacity=can?"1":"0.4";rb.style.pointerEvents=can?"auto":"none";}
 }
 let last=performance.now();
 function loop(now){const dt=Math.min((now-last)/1000,0.05);last=now;
@@ -345,6 +351,11 @@ function loop(now){const dt=Math.min((now-last)/1000,0.05);last=now;
 cv.addEventListener("click",()=>{if(S.screen==="dead")S.screen="menu";});
 document.getElementById("playmenu").addEventListener("click",()=>{setPolygon(0);S.screen="game";});
 document.getElementById("nextwave").addEventListener("click",()=>startWave());
+document.getElementById("repair").addEventListener("click",()=>{
+  if(S.screen!=="game")return;
+  if(S.lives>=LIVES0||S.gold<TUNE.repairCost)return;
+  S.gold-=TUNE.repairCost;S.lives++;
+});
 setPolygon(0);S.screen="menu";
 requestAnimationFrame(loop);
 
