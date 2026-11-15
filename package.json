@@ -1,0 +1,17 @@
+{
+  "name": "td-poligon",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tower defense prototype: one HTML file, zero runtime dependencies",
+  "type": "module",
+  "scripts": {
+    "test": "npm run test:static && npm run test:e2e && npm run test:balance",
+    "test:static": "node tests/static.test.mjs",
+    "test:e2e": "node tests/e2e.test.mjs",
+    "test:balance": "node tests/balance.test.mjs",
+    "build": "cd src && python3 build_full.py ../index.html"
+  },
+  "devDependencies": {
+    "playwright": "1.61.1"
+  }
+}

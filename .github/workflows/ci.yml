@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  static:
+    name: Статика и воспроизводимость сборки
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Статические проверки
+        run: node tests/static.test.mjs
+
+  browser:
+    name: E2E и регрессия баланса
+    runs-on: ubuntu-latest
+    needs: static
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Установить playwright
+        run: |
+          npm i --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: E2E смоук
+        run: node tests/e2e.test.mjs
+      - name: Регрессия баланса
+        run: node tests/balance.test.mjs
+      - name: Артефакт при падении
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-shots
+          path: |
+            tests/*.png
+            *.png
+          if-no-files-found: ignore
