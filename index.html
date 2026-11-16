@@ -22,27 +22,44 @@ button:hover{background:#2ea043}
 
 "use strict";
 // ============ DATA (BALANCE.md 14.11.2026) ============
+// Пути — ломаные только из 0/30/45/90, скругления считает roundRoute().
+// Ветвь — дуга: подъём, полка, спуск. net dy = 0, поэтому слияние точное,
+// а после него идёт общий хвост — на нём стоит единственный туннель карты.
+// Пути — ломаные только из 0/30/45/90, скругления считает roundRoute().
+// Вход → петля-ветвь (net dy = 0, точное слияние) → серпантин общего хвоста.
+// Серпантин не для красоты: он держит длину маршрута 1150-1260, иначе враг
+// проходит арену слишком быстро и баланс валится.
 const POLYGONS=[
- {id:"trava",   name:"Трава",   hpk:1.00, spdk:1.00, gold:320,
-  path:[[-40,260],[90,260],[150,200],[240,185],[280,270],[370,290],[410,195],[500,175],[545,270],[640,290],[690,200],[790,190],[940,235]],
-  slots:[[110,180],[230,250],[340,220],[470,240],[600,220],[760,260]],
-  road:{base:"#6f6240",top:"#9a865a",edge:"#57503a",plank:"#8a6f45"},narrow:[0.34,0.68],bridgeAt:0.52},
- {id:"les",     name:"Лес",     hpk:1.30, spdk:1.12, gold:320,
-  path:[[-40,120],[120,120],[180,190],[260,200],[300,300],[420,310],[460,210],[560,190],[600,300],[700,310],[740,200],[830,180],[940,200]],
-  slots:[[120,190],[260,260],[380,240],[520,260],[640,240],[790,250]],
-  road:{base:"#5f5138",top:"#84744e",edge:"#4a4030",plank:"#77593a"},narrow:[0.30,0.66],bridgeAt:0.47},
- {id:"pustynya",name:"Пустыня", hpk:1.70, spdk:1.14, gold:340,
-  path:[[-40,380],[110,380],[170,300],[260,290],[300,380],[400,390],[440,290],[540,280],[580,370],[690,380],[730,280],[830,270],[940,300]],
-  slots:[[120,310],[270,350],[380,320],[510,350],[650,310],[800,340]],
-  road:{base:"#8f7448",top:"#c2a068",edge:"#6e5a38",plank:"#9a7a4a"},narrow:[0.36,0.70],bridgeAt:0.55},
- {id:"ostrova", name:"Острова", hpk:2.15, spdk:1.18, gold:360,
-  path:[[-40,200],[100,200],[150,280],[250,290],[300,200],[400,190],[450,280],[550,290],[600,200],[700,190],[750,280],[840,270],[940,220]],
-  slots:[[110,260],[260,230],[380,250],[530,230],[650,250],[790,220]],
-  road:{base:"#7a6c48",top:"#ab9a6a",edge:"#5c5340",plank:"#7d6242"},narrow:[0.32,0.64],bridgeAt:0.50},
- {id:"vulkany", name:"Вулканы", hpk:2.70, spdk:1.22, gold:380,
-  path:[[-40,320],[90,320],[140,240],[230,230],[270,320],[360,330],[400,230],[490,220],[530,320],[620,330],[660,230],[760,220],[940,280]],
-  slots:[[110,250],[240,290],[370,260],[500,290],[620,260],[760,290]],
-  road:{base:"#41332f",top:"#6a4c40",edge:"#2c211e",plank:"#4e3a30"},narrow:[0.33,0.67],bridgeAt:0.58},
+ {id:"trava",name:"Трава",hpk:1.00,spdk:1.00,gold:320,
+  start:[-40,250],
+  steps:[[0,70.0],[45,80.0],[0,90.0],[-45,80.0],[-45,140.0],[0,60.0],[45,140.0],[0,60.0],[-45,140.0],[0,60.0],[45,140.0],[0,60.0],[0,65.9]],
+  altSteps:[[0,70.0],[-45,80.0],[0,90.0],[45,80.0],[-45,140.0],[0,60.0],[45,140.0],[0,60.0],[-45,140.0],[0,60.0],[45,140.0],[0,60.0],[0,65.9]],
+  tex:"gravel",
+  road:{base:"#6f6240",top:"#9a865a",edge:"#57503a",plank:"#8a6f45"},narrow:[0.16,0.86],bridgeAt:0.3},
+ {id:"les",name:"Лес",hpk:1.30,spdk:1.12,gold:320,
+  start:[-40,242],
+  steps:[[0,71.4],[45,81.6],[0,91.8],[-45,81.6],[-45,142.8],[0,61.2],[45,142.8],[0,61.2],[-45,142.8],[0,61.2],[45,142.8],[0,61.2],[0,67.2]],
+  altSteps:[[0,71.4],[-45,81.6],[0,91.8],[45,81.6],[-45,142.8],[0,61.2],[45,142.8],[0,61.2],[-45,142.8],[0,61.2],[45,142.8],[0,61.2],[0,67.2]],
+  tex:"gravel",
+  road:{base:"#5f5138",top:"#84744e",edge:"#4a4030",plank:"#77593a"},narrow:[0.14,0.84],bridgeAt:0.28},
+ {id:"pustynya",name:"Пустыня",hpk:1.70,spdk:1.14,gold:340,
+  start:[-40,256],
+  steps:[[0,68.6],[45,78.4],[0,88.2],[-45,78.4],[-45,137.2],[0,58.8],[45,137.2],[0,58.8],[-45,137.2],[0,58.8],[45,137.2],[0,58.8],[0,64.6]],
+  altSteps:[[0,68.6],[-45,78.4],[0,88.2],[45,78.4],[-45,137.2],[0,58.8],[45,137.2],[0,58.8],[-45,137.2],[0,58.8],[45,137.2],[0,58.8],[0,64.6]],
+  tex:"sand",
+  road:{base:"#8f7448",top:"#c2a068",edge:"#6e5a38",plank:"#9a7a4a"},narrow:[0.16,0.82],bridgeAt:0.32},
+ {id:"ostrova",name:"Острова",hpk:2.15,spdk:1.18,gold:360,
+  start:[-40,246],
+  steps:[[0,70.0],[45,80.0],[0,90.0],[-45,80.0],[-45,140.0],[0,60.0],[45,140.0],[0,60.0],[-45,140.0],[0,60.0],[45,140.0],[0,60.0],[0,65.9]],
+  altSteps:[[0,70.0],[-45,80.0],[0,90.0],[45,80.0],[-45,140.0],[0,60.0],[45,140.0],[0,60.0],[-45,140.0],[0,60.0],[45,140.0],[0,60.0],[0,65.9]],
+  tex:"asphalt",
+  road:{base:"#5c5f63",top:"#7b7f84",edge:"#43464a",plank:"#7d6242"},narrow:[0.15,0.8],bridgeAt:0.3},
+ {id:"vulkany",name:"Вулканы",hpk:2.70,spdk:1.22,gold:380,
+  start:[-40,254],
+  steps:[[0,72.8],[45,83.2],[0,93.6],[-45,83.2],[-45,145.6],[0,62.4],[45,145.6],[0,62.4],[-45,145.6],[0,62.4],[45,145.6],[0,62.4],[0,68.5]],
+  altSteps:[[0,72.8],[-45,83.2],[0,93.6],[45,83.2],[-45,145.6],[0,62.4],[45,145.6],[0,62.4],[-45,145.6],[0,62.4],[45,145.6],[0,62.4],[0,68.5]],
+  tex:"boulder",
+  road:{base:"#41332f",top:"#6a4c40",edge:"#2c211e",plank:"#4e3a30"},narrow:[0.15,0.82],bridgeAt:0.34},
 ];
 const TOWERS=[
  {name:"Лучник",    cost:60,   rate:1.0, dmg:10,  splash:0,  burn:0,  up:[50,110,200],    spr:"t1", desc:"1 стрела/с"},
@@ -153,13 +170,36 @@ function drawDecor(g,biome,t){
 // ============ state ============
 const S={screen:"menu",pi:0,gold:0,lives:LIVES0,wave:0,waveActive:false,enemies:[],towers:[],shots:[],parts:[],spawnQueue:[],spawnTimer:0,betweenTimer:0,time:0,selTower:0,msg:"",finished:{}};
 let ROUTES=[],RSEG=[],RTOT=[],DECOYS=[],FORK=null,REJOIN=null;
-function buildAlt(main){
-  // Ветвь: повторяет главную, середина смещена перпендикулярно — петля с fork/rejoin.
-  const n=main.length, alt=main.map(p=>({x:p[0],y:p[1]}));
-  const side=(main[3].y<main[5].y)?1:-1;
-  for(let k=3;k<=n-4;k++){alt[k]={x:main[k][0]+(k%2?14:-14),y:main[k][1]+side*78};
-    alt[k].x=Math.max(30,Math.min(870,alt[k].x));alt[k].y=Math.max(50,Math.min(450,alt[k].y));}
-  return alt;
+function noise2(x,y){const h=Math.sin(x*12.9898+y*78.233)*43758.5453;return h-Math.floor(h);}
+// Строит маршрут из start и шагов [угол, длина]. Углы только 0/30/45/90.
+// Внутренние вершины скругляются квадратичной кривой и семплируются в точки,
+// чтобы posAt() считал длину по дуге, а не по хорде.
+function roundRoute(start,steps,radius){
+  const raw=[{x:start[0],y:start[1]}];
+  let x=start[0],y=start[1];
+  for(const st of steps){
+    const a=st[0]*Math.PI/180, ln=st[1];
+    x+=Math.cos(a)*ln; y+=Math.sin(a)*ln;
+    raw.push({x,y});
+  }
+  const out=[raw[0]];
+  for(let i=1;i<raw.length-1;i++){
+    const p0=raw[i-1],p1=raw[i],p2=raw[i+1];
+    const v1={x:p0.x-p1.x,y:p0.y-p1.y}, v2={x:p2.x-p1.x,y:p2.y-p1.y};
+    const l1=Math.hypot(v1.x,v1.y)||1, l2=Math.hypot(v2.x,v2.y)||1;
+    const r=Math.min(radius,l1*0.45,l2*0.45);
+    const a1={x:p1.x+v1.x/l1*r,y:p1.y+v1.y/l1*r};
+    const a2={x:p1.x+v2.x/l2*r,y:p1.y+v2.y/l2*r};
+    out.push(a1);
+    const N=7;
+    for(let k=1;k<=N;k++){
+      const t=k/N, mt=1-t;
+      out.push({x:mt*mt*a1.x+2*mt*t*p1.x+t*t*a2.x, y:mt*mt*a1.y+2*mt*t*p1.y+t*t*a2.y});
+    }
+    out.push(a2);
+  }
+  out.push(raw[raw.length-1]);
+  return out;
 }
 function bakeRoute(pts){
   const P=pts.map(p=>({x:p.x!==undefined?p.x:p[0],y:p.y!==undefined?p.y:p[1]}));
@@ -169,12 +209,28 @@ function bakeRoute(pts){
 }
 function setPolygon(i){
   S.pi=i; const P=POLYGONS[i];
-  const main=P.path, altP=buildAlt(main);
-  ROUTES=[main.map(p=>({x:p[0],y:p[1]})),altP];
+  ROUTES=[roundRoute(P.start,P.steps,26), roundRoute(P.start,P.altSteps,26)];
   RSEG=[];RTOT=[];
   for(const r of ROUTES){const b=bakeRoute(r);RSEG.push(b.seg);RTOT.push(b.tot);}
-  // fork/rejoin: точки расхождения и схождения
-  FORK=ROUTES[0][3];REJOIN=ROUTES[0][ROUTES[0].length-4];
+  // fork/rejoin: считаем по геометрии, а не по доле длины.
+  // Ищем, где ветви реально расходятся и где снова совпадают.
+  (function(){
+    const tot=Math.min(RTOT[0],RTOT[1]);
+    let forkD=0,rejoinD=tot;
+    for(let d=0;d<=tot;d+=2){
+      const a=posAt(d,0),b=posAt(d,1);
+      if(Math.hypot(a.x-b.x,a.y-b.y)>2){forkD=d;break;}
+    }
+    for(let d=tot;d>=0;d-=2){
+      const a=posAt(d,0),b=posAt(d,1);
+      if(Math.hypot(a.x-b.x,a.y-b.y)>2){rejoinD=d;break;}
+    }
+    FORK=posAt(Math.max(0,forkD-4),0);
+    REJOIN=posAt(Math.min(tot,rejoinD+4),0);
+    // туннель: короткий, на общем участке после слияния — один на карту.
+    const len=Math.min(96,tot-rejoinD-14);
+    P._tun=len>40?[rejoinD+10,rejoinD+10+len]:null;
+  })();
   // площадки: обе стороны проверяются, выбирается та, что дальше от ОБЕИХ дорог; отступ растёт пока <38px
   (function(){
     function minDist(x,y){
@@ -205,9 +261,9 @@ function setPolygon(i){
   })();
   // декоративные тупики: 2 коротких ответвления
   DECOYS=[];
-  const d1=ROUTES[0][5],d2=ROUTES[0][8];
-  DECOYS.push([d1,{x:d1.x+70,y:d1.y-60}]);
-  DECOYS.push([d2,{x:d2.x-60,y:d2.y+70}]);
+  const d1=posAt(RTOT[0]*0.34,0),d2=posAt(RTOT[0]*0.58,0);
+  DECOYS.push([d1,{x:d1.x+64,y:d1.y-54}]);
+  DECOYS.push([d2,{x:d2.x-54,y:d2.y+64}]);
   S.gold=P.gold;S.lives=LIVES0;S.wave=0;S.waveActive=false;S.enemies=[];S.towers=[];S.shots=[];S.parts=[];S.spawnQueue=[];S.betweenTimer=0;S.selTower=0;
 }
 function posAt(d,ri){ri=ri||0;const seg=RSEG[ri],tot=RTOT[ri];if(!seg)return{x:0,y:0};
@@ -258,7 +314,12 @@ cv.addEventListener("click",(e)=>{
 });
 addEventListener("keydown",(e)=>{if(e.code==="Space"){e.preventDefault();if(S.screen==="game")startWave();}});
 
+function inTunnel(en){
+  const P=POLYGONS[S.pi]; if(!P._tun)return false;
+  return en.d>=P._tun[0]&&en.d<=P._tun[1];
+}
 function damage(e,dmg,burn){
+  if(inTunnel(e))return;
   e.hp-=dmg; if(burn>0){e.burnT=3;e.burnDps=burn;}
 }
 function update(dt){
@@ -271,7 +332,7 @@ function update(dt){
     }}
   for(const en of S.enemies){
     if(en.dead)continue;
-    if(en.burnT>0){en.burnT-=dt;en.hp-=en.burnDps*dt;}
+    if(en.burnT>0){if(!inTunnel(en)){en.burnT-=dt;en.hp-=en.burnDps*dt;}}
     en.d+=en.spd*dt;en.anim+=dt;
     if(en.hp<=0){en.dead=true;
       let rw=Math.round(en.maxHp*0.10*Math.pow(POLYGONS[S.pi].hpk,-TUNE.incExp));if(en.boss>0)rw=Math.round(rw*1.8);S.gold+=rw;
@@ -283,7 +344,7 @@ function update(dt){
   for(const t of S.towers){
     t.timer-=dt; if(t.timer>0)continue;
     let target=null;
-    for(const en of S.enemies){if(en.dead)continue;const p=posAt(en.d,en.ri);
+    for(const en of S.enemies){if(en.dead)continue;if(inTunnel(en))continue;const p=posAt(en.d,en.ri);
       if(Math.hypot(p.x-t.x,p.y-t.y)>t.range)continue;
       if(!target||(en.d/routeLen(en.ri))>(target.d/routeLen(target.ri)))target=en;}
     if(target){const def=TOWERS[t.ti];t.timer=1/Math.max(0.2,def.rate*(1+(t.level-1)*0.06));
@@ -328,6 +389,77 @@ function strokeRoute(pts,color,width,ox,oy,dash){
   ctx.moveTo(pts[0].x+(ox||0),pts[0].y+(oy||0));
   for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x+(ox||0),pts[i].y+(oy||0));
   ctx.stroke();ctx.restore();
+}
+function drawRouteTexture(P,t){
+  const tex=P.tex||"gravel";
+  ctx.save();
+  for(let ri=0;ri<ROUTES.length;ri++){
+    const tot=RTOT[ri];
+    for(let d=6;d<tot-6;d+=9){
+      const a=posAt(d,ri), b=posAt(Math.min(d+9,tot),ri);
+      const ang=Math.atan2(b.y-a.y,b.x-a.x);
+      const nx=-Math.sin(ang), ny=Math.cos(ang);
+      const n1=noise2(d*0.13,ri*7.1), n2=noise2(d*0.41+3,ri*2.7);
+      const off=(n1-0.5)*24;
+      const px=a.x+nx*off, py=a.y+ny*off;
+      if(tex==="gravel"){
+        ctx.fillStyle=n2>0.62?"rgba(255,255,255,0.13)":"rgba(0,0,0,0.20)";
+        const r1=1+n1*2.2;
+        ctx.beginPath();ctx.ellipse(px,py,r1,r1*0.72,ang,0,Math.PI*2);ctx.fill();
+      }else if(tex==="sand"){
+        ctx.strokeStyle=n2>0.5?"rgba(255,240,200,0.16)":"rgba(90,70,40,0.18)";
+        ctx.lineWidth=1.6;
+        ctx.beginPath();ctx.moveTo(px-nx*7,py-ny*7);
+        ctx.quadraticCurveTo(px+nx*1+Math.cos(ang)*3,py+ny*1+Math.sin(ang)*3,px+nx*7,py+ny*7);
+        ctx.stroke();
+      }else if(tex==="asphalt"){
+        if(n2>0.74){ctx.strokeStyle="rgba(0,0,0,0.28)";ctx.lineWidth=1.4;
+          ctx.beginPath();ctx.moveTo(px,py);
+          ctx.lineTo(px+nx*4+Math.cos(ang)*7,py+ny*4+Math.sin(ang)*7);
+          ctx.lineTo(px+nx*9+Math.cos(ang)*11,py+ny*9+Math.sin(ang)*11);ctx.stroke();}
+        else if(n1>0.55){ctx.fillStyle="rgba(255,255,255,0.10)";
+          ctx.fillRect(px-1,py-1,2,2);}
+      }else{
+        const r1=1.8+n2*3.4;
+        ctx.fillStyle=n2>0.5?"rgba(0,0,0,0.26)":"rgba(160,140,130,0.16)";
+        ctx.beginPath();ctx.ellipse(px,py,r1,r1*0.78,ang+n1,0,Math.PI*2);ctx.fill();
+        if(n2>0.72){ctx.fillStyle="rgba(255,140,40,0.10)";
+          ctx.beginPath();ctx.ellipse(px,py,r1*1.5,r1*1.1,ang,0,Math.PI*2);ctx.fill();}
+      }
+    }
+    // туннель: проход под скалой. Читается не как труба, а как тень:
+    // затемнение нарастает от порталов к середине, портал — две скалы по бокам.
+    if(P._tun&&ri===0){
+      const d0=P._tun[0], d1=P._tun[1], span=d1-d0;
+      // 1. затемнение полотна с плавным входом и выходом
+      for(let d=d0;d<d1;d+=6){
+        const t=(d-d0)/span;                       // 0..1
+        const k=Math.sin(Math.PI*t);                // 0 на порталах, 1 в середине
+        const a=posAt(d,ri), b=posAt(Math.min(d+6,tot),ri);
+        const ang=Math.atan2(b.y-a.y,b.x-a.x);
+        ctx.save();ctx.translate(a.x,a.y);ctx.rotate(ang);
+        ctx.fillStyle="rgba(4,4,8,"+(0.86*k).toFixed(3)+")";
+        ctx.fillRect(0,-22,6.5,44);
+        ctx.restore();
+      }
+      // 2. порталы: две скалы по бокам, без кольца вокруг дороги
+      for(const [d,k] of [[d0,1],[d1,-1]]){
+        const c=posAt(d,ri), n=posAt(Math.min(Math.max(d+8*k,0),tot),ri);
+        const ang=Math.atan2(n.y-c.y,n.x-c.x), nx=-Math.sin(ang), ny=Math.cos(ang);
+        for(const side of [1,-1]){
+          ctx.save();
+          ctx.fillStyle="rgba(0,0,0,0.32)";
+          ctx.beginPath();ctx.ellipse(c.x+nx*30*side,c.y+ny*30*side+5,15,19,ang,0,Math.PI*2);ctx.fill();
+          ctx.fillStyle="#4a4a53";
+          ctx.beginPath();ctx.ellipse(c.x+nx*30*side,c.y+ny*30*side,13,17,ang,0,Math.PI*2);ctx.fill();
+          ctx.fillStyle="rgba(255,255,255,0.14)";
+          ctx.beginPath();ctx.ellipse(c.x+nx*30*side-3,c.y+ny*30*side-4,7,9,ang,0,Math.PI*2);ctx.fill();
+          ctx.restore();
+        }
+      }
+    }
+  }
+  ctx.restore();
 }
 function drawRoads(P,t){
   // 1. декоративные тупики (тонкие тропы в никуда)
@@ -399,7 +531,9 @@ function drawRoads(P,t){
     for(let x=-44;x<=44;x+=22){ctx.fillRect(x-2,-32,4,10);ctx.fillRect(x-2,22,4,10);}
     ctx.restore();
   }
-  // 10. вулканы: светящиеся трещины вдоль полотна
+  // 10. текстура полотна по биому + единственный туннель карты
+  drawRouteTexture(P,t);
+  // 11. вулканы: светящиеся трещины вдоль полотна
   if(P.id==="vulkany"){
     ctx.save();ctx.globalCompositeOperation="lighter";
     ctx.strokeStyle="rgba(255,110,20,"+(0.25+0.12*Math.sin(t*2.2))+")";ctx.lineWidth=3;ctx.setLineDash([12,26]);
