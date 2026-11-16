@@ -213,24 +213,30 @@ function setPolygon(i){
   ROUTES=[roundRoute(P.start,P.steps,26), roundRoute(P.start,P.altSteps,26)];
   RSEG=[];RTOT=[];
   for(const r of ROUTES){const b=bakeRoute(r);RSEG.push(b.seg);RTOT.push(b.tot);}
-  // fork/rejoin: считаем по геометрии, а не по доле длины.
-  // Ищем, где ветви реально расходятся и где снова совпадают.
+  // fork/rejoin: общий хвост ищем по совпадению ВЕРШИН с конца.
+  // Сравнивать posAt(d,0) и posAt(d,1) по одной дуговой длине нельзя:
+  // после скруглений длины ветвей расходятся на несколько пикселей, и
+  // одинаковые d указывают на разные точки — слияние «не находится».
   (function(){
-    const tot=Math.min(RTOT[0],RTOT[1]);
-    let forkD=0,rejoinD=tot;
-    for(let d=0;d<=tot;d+=2){
-      const a=posAt(d,0),b=posAt(d,1);
-      if(Math.hypot(a.x-b.x,a.y-b.y)>2){forkD=d;break;}
-    }
-    for(let d=tot;d>=0;d-=2){
-      const a=posAt(d,0),b=posAt(d,1);
-      if(Math.hypot(a.x-b.x,a.y-b.y)>2){rejoinD=d;break;}
-    }
-    FORK=posAt(Math.max(0,forkD-4),0);
-    REJOIN=posAt(Math.min(tot,rejoinD+4),0);
-    // туннель: короткий, на общем участке после слияния — один на карту.
-    const len=Math.min(96,tot-rejoinD-14);
-    P._tun=len>40?[rejoinD+10,rejoinD+10+len]:null;
+    const A=ROUTES[0], B=ROUTES[1];
+    const eps=0.75;
+    const eq=(p,q)=>Math.abs(p.x-q.x)<eps&&Math.abs(p.y-q.y)<eps;
+    // сколько вершин с конца совпадают
+    let n=0;
+    while(n<A.length-1 && n<B.length-1 && eq(A[A.length-1-n],B[B.length-1-n])) n++;
+    // индекс первой вершины общего хвоста в маршруте 0
+    const tailStart=A.length-n;
+    // длина хвоста по дуге
+    let tailLen=0;
+    for(let k=tailStart;k<A.length-1;k++)tailLen+=Math.hypot(A[k+1].x-A[k].x,A[k+1].y-A[k].y);
+    // точка слияния — её дуговая координата на маршруте 0
+    let mergeD=0;
+    for(let k=0;k<tailStart;k++)mergeD+=Math.hypot(A[k+1].x-A[k].x,A[k+1].y-A[k].y);
+    FORK=posAt(Math.max(0,mergeD*0.30),0);
+    REJOIN=posAt(mergeD,0);
+    // туннель: короткий, на общем хвосте, с отступом от слияния и от выхода
+    const len=Math.min(110,tailLen-60);
+    P._tun=len>50?[mergeD+24,mergeD+24+len]:null;
   })();
   // площадки: обе стороны проверяются, выбирается та, что дальше от ОБЕИХ дорог; отступ растёт пока <38px
   (function(){
